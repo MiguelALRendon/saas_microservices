@@ -15,7 +15,8 @@ class EmpresaSchema(BaseSchema):
             'urlLogo': empresa.urlLogo,
             'direccion': empresa.direccion,
             'telefono': empresa.telefono,
-            'email': empresa.email
+            'email': empresa.email,
+            'fkSistema': empresa.fkSistema,
         })
         return data
     
@@ -39,6 +40,8 @@ class EmpresaSchema(BaseSchema):
             errors.append('urlLogo es requerido')
         if not data.get('direccion'):
             errors.append('direccion es requerida')
+        if not data.get('fkSistema'):
+            errors.append('fkSistema es requerido')
         
         return errors
     

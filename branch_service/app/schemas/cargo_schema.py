@@ -11,6 +11,7 @@ class CargoSchema(BaseSchema):
         data.update({
             'clave': cargo.clave,
             'nombre': cargo.nombre,
+            'fkEmpresa': cargo.fkEmpresa,
         })
         return data
 
@@ -28,6 +29,8 @@ class CargoSchema(BaseSchema):
             errors.append('clave es requerida')
         if not data.get('nombre'):
             errors.append('nombre es requerido')
+        if not data.get('fkEmpresa'):
+            errors.append('fkEmpresa es requerido')
 
         return errors
 

@@ -1,6 +1,7 @@
 from .base_schema import BaseSchema
 from app.external_catalogues.empresa_external import EmpresaExternal
 from app.external_catalogues.sucursal_external import SucursalExternal
+from app.external_catalogues.sistema_external import SistemaExternal
 
 
 class TurnoSucursalSchema(BaseSchema):
@@ -20,6 +21,8 @@ class TurnoSucursalSchema(BaseSchema):
             'empresa': EmpresaExternal.get_by_oid(turno.fkEmpresa) if turno.fkEmpresa else None,
             'fkSucursal': turno.fkSucursal,
             'sucursal': SucursalExternal.get_by_oid(turno.fkSucursal) if turno.fkSucursal else None,
+            'fkSistema': turno.fkSistema,
+            'sistema': SistemaExternal.get_by_oid(turno.fkSistema) if turno.fkSistema else None,
         })
         return data
 
@@ -45,6 +48,8 @@ class TurnoSucursalSchema(BaseSchema):
             errors.append('fkEmpresa es requerido')
         if not data.get('fkSucursal'):
             errors.append('fkSucursal es requerido')
+        if not data.get('fkSistema'):
+            errors.append('fkSistema es requerido')
 
         return errors
 

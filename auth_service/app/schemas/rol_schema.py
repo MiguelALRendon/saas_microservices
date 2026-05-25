@@ -8,7 +8,9 @@ class RolSchema(BaseSchema):
         """Serializa un rol a diccionario"""
         data = BaseSchema.serialize_base(rol)
         data.update({
-            'nombre': rol.nombre
+            'nombre': rol.nombre,
+            'fkSistema': rol.fkSistema,
+            'fkEmpresa': rol.fkEmpresa,
         })
         return data
     
@@ -24,7 +26,9 @@ class RolSchema(BaseSchema):
         
         if not data.get('nombre'):
             errors.append('nombre es requerido')
-        
+        if not data.get('fkSistema'):
+            errors.append('fkSistema es requerido')
+
         return errors
     
     @staticmethod

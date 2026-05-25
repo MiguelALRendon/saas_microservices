@@ -10,7 +10,8 @@ class PermisoSchema(BaseSchema):
         data.update({
             'clave': permiso.clave,
             'nombre': permiso.nombre,
-            'permiso': permiso.permiso
+            'permiso': permiso.permiso,
+            'fkSistema': permiso.fkSistema,
         })
         return data
     
@@ -30,7 +31,9 @@ class PermisoSchema(BaseSchema):
             errors.append('nombre es requerido')
         if not data.get('permiso'):
             errors.append('permiso es requerido')
-        
+        if not data.get('fkSistema'):
+            errors.append('fkSistema es requerido')
+
         return errors
     
     @staticmethod

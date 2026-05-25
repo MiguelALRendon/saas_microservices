@@ -2,6 +2,7 @@ from .base_schema import BaseSchema
 from .cargo_schema import CargoSchema
 from app.external_catalogues.empresa_external import EmpresaExternal
 from app.external_catalogues.sucursal_external import SucursalExternal
+from app.external_catalogues.sistema_external import SistemaExternal
 
 
 class EmpleadoSchema(BaseSchema):
@@ -26,6 +27,8 @@ class EmpleadoSchema(BaseSchema):
             'empresa': EmpresaExternal.get_by_oid(empleado.fkEmpresa) if empleado.fkEmpresa else None,
             'fkSucursal': empleado.fkSucursal,
             'sucursal': SucursalExternal.get_by_oid(empleado.fkSucursal) if empleado.fkSucursal else None,
+            'fkSistema': empleado.fkSistema,
+            'sistema': SistemaExternal.get_by_oid(empleado.fkSistema) if empleado.fkSistema else None,
         })
         return data
 
@@ -53,6 +56,8 @@ class EmpleadoSchema(BaseSchema):
             errors.append('fkEmpresa es requerido')
         if not data.get('fkSucursal'):
             errors.append('fkSucursal es requerido')
+        if not data.get('fkSistema'):
+            errors.append('fkSistema es requerido')
 
         return errors
 

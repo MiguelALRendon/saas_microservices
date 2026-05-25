@@ -12,13 +12,15 @@ class TurnoSucursal(BaseObject):
     # Foreign Keys - referencias a otros microservicios
     fkEmpresa = db.Column(db.String(36), nullable=False, index=True)
     fkSucursal = db.Column(db.String(36), nullable=False, index=True)
-    
+    fkSistema = db.Column(db.String(36), nullable=False, index=True)
+
     # Relaciones
     cortes_caja = db.relationship('CorteCaja', back_populates='turno', lazy='dynamic')
-    
+
     # Índices compuestos
     __table_args__ = (
         db.Index('ix_turno_sucursal_empresa', 'fkEmpresa', 'fkSucursal'),
+        db.Index('ix_turno_sucursal_sistema', 'fkSistema', 'fkSucursal'),
     )
     
     def __repr__(self):
