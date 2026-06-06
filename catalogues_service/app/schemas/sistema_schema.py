@@ -1,13 +1,13 @@
-from .base_schema import BaseSchema
-from app.enums import BaseObjectEstatus
+# Migrado a galurensoft_core: serialize_audit + paginate_local (empresas locales del sistema).
+from galurensoft_core.serialization import paginate_local, serialize_audit
 
 
-class SistemaSchema(BaseSchema):
+class SistemaSchema:
     """Schema para serialización y validación de Sistema."""
 
     @staticmethod
     def serialize(sistema, _cache=None):
-        data = BaseSchema.serialize_base(sistema)
+        data = serialize_audit(sistema)
         data.update({
             'clave': sistema.clave,
             'nombre': sistema.nombre,
@@ -22,21 +22,18 @@ class SistemaSchema(BaseSchema):
 
     @staticmethod
     def serialize_detail(sistema, per_page: int = 25, _cache=None):
-        """Detalle paginado: empresas del sistema (interno)."""
+        """Detalle paginado: empresas del sistema (local)."""
+        from app.enums import BaseObjectEstatus
         from app.models.empresa import Empresa
-        from .empresa_schema import EmpresaSchema
+        from app.schemas.empresa_schema import EmpresaSchema
 
-        cache = _cache if _cache is not None else BaseSchema.empty_cache()
-        data = SistemaSchema.serialize(sistema, _cache=cache)
-
+        data = SistemaSchema.serialize(sistema)
         empresas_q = Empresa.query.filter(
             Empresa.fkSistema == sistema.oid,
             Empresa.estatus == BaseObjectEstatus.ACTIVO,
         )
-        data['empresas'] = BaseSchema.paginate_local(
-            empresas_q,
-            lambda items: EmpresaSchema.serialize_list(items, _cache=cache),
-            per_page=per_page,
+        data['empresas'] = paginate_local(
+            empresas_q, EmpresaSchema.serialize_list, per_page=per_page,
         )
         return data
 

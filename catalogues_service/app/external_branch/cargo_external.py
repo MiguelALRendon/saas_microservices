@@ -1,58 +1,25 @@
-import requests
+# Migrado a galurensoft_core.clients.ResourceClient (wrapper GET-only sobre branch_service/cargo).
 from config import Config
+from galurensoft_core.clients import RequestsTransport, ResourceClient
+
+cargo_client = ResourceClient(
+    Config.BRANCH_SERVICE_URL,
+    'cargo',
+    RequestsTransport(secret=Config.INTERNAL_SERVICE_SECRET),
+)
 
 
 class CargoExternal:
-    """Wrapper GET-only para Cargo del branch_service.
-
-    TODO: Deuda técnica - implementar create/update cuando se configure
-          autenticación entre servicios (service tokens / API keys).
-    """
-
-    BASE_URL = Config.BRANCH_SERVICE_URL
+    """Compat: API estática previa, ahora delegando en `cargo_client`."""
 
     @staticmethod
-    def _headers() -> dict:
-        return {'X-Internal-Service-Secret': Config.INTERNAL_SERVICE_SECRET}
+    def get_by_oid(oid: str):
+        return cargo_client.get_by_oid(oid)
 
     @staticmethod
-    def get_by_oid(oid: str) -> dict | None:
-        try:
-            response = requests.get(f'{CargoExternal.BASE_URL}/cargo/{oid}', headers=CargoExternal._headers())
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except Exception:
-            return None
+    def get_list(page: int = 1, per_page: int = 10, **filters):
+        return cargo_client.get_list(page=page, per_page=per_page, **filters)
 
     @staticmethod
-    def get_list(page: int = 1, per_page: int = 10, **filters) -> dict:
-        try:
-            params = {'page': page, 'per_page': per_page, **filters}
-            response = requests.get(f'{CargoExternal.BASE_URL}/cargo/', params=params, headers=CargoExternal._headers())
-            if response.status_code == 200:
-                return response.json()
-            return {'data': [], 'total': 0, 'page': page, 'per_page': per_page, 'pages': 0}
-        except Exception:
-            return {'data': [], 'total': 0, 'page': page, 'per_page': per_page, 'pages': 0}
-
-    @staticmethod
-    def get_by_oid_list(oid_list: list) -> list:
-        try:
-            response = requests.post(
-                f'{CargoExternal.BASE_URL}/cargo/list',
-                json={'oid_list': oid_list},
-                headers=CargoExternal._headers()
-            )
-            if response.status_code == 200:
-                return response.json()
-            return []
-        except Exception:
-            return []
-
-    # TODO: Deuda técnica - habilitar cuando se configure autenticación entre servicios
-    # @staticmethod
-    # def create(data: dict) -> dict | None: ...
-    #
-    # @staticmethod
-    # def update(oid: str, data: dict) -> dict | None: ...
+    def get_by_oid_list(oid_list: list):
+        return cargo_client.get_by_oid_list(oid_list)

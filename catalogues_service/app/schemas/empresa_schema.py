@@ -1,13 +1,14 @@
-from .base_schema import BaseSchema
-from app.enums import BaseObjectEstatus
+# Migrado a galurensoft_core: serialize_audit + paginate_local (sucursales locales) +
+# paginated_external (cargos del branch_service).
+from galurensoft_core.serialization import paginate_local, paginated_external, serialize_audit
 
 
-class EmpresaSchema(BaseSchema):
+class EmpresaSchema:
     """Schema para serialización y validación de Empresa."""
 
     @staticmethod
     def serialize(empresa, _cache=None):
-        data = BaseSchema.serialize_base(empresa)
+        data = serialize_audit(empresa)
         data.update({
             'clave': empresa.clave,
             'nombre': empresa.nombre,
@@ -26,26 +27,20 @@ class EmpresaSchema(BaseSchema):
 
     @staticmethod
     def serialize_detail(empresa, per_page: int = 25, _cache=None):
-        """Detalle paginado:
-        - sucursales (interno, vía relationship)
-        - cargos (externo, vía external_branch)
-        """
-        from .sucursal_schema import SucursalSchema
+        """Detalle paginado: sucursales (local) + cargos (externo, branch_service)."""
+        from app.enums import BaseObjectEstatus
         from app.models.sucursal import Sucursal
-        from app.external_branch.cargo_external import CargoExternal
+        from app.schemas.sucursal_schema import SucursalSchema
+        from app.external_branch.cargo_external import cargo_client
 
-        cache = _cache if _cache is not None else BaseSchema.empty_cache()
-        data = EmpresaSchema.serialize(empresa, _cache=cache)
+        data = EmpresaSchema.serialize(empresa)
 
         sucursales_q = empresa.sucursales.filter(Sucursal.estatus == BaseObjectEstatus.ACTIVO)
-        data['sucursales'] = BaseSchema.paginate_local(
-            sucursales_q,
-            lambda items: SucursalSchema.serialize_list(items, _cache=cache),
-            per_page=per_page,
+        data['sucursales'] = paginate_local(
+            sucursales_q, SucursalSchema.serialize_list, per_page=per_page,
         )
-
-        data['cargos'] = BaseSchema.paginated_envelope(
-            CargoExternal, per_page=per_page, fkEmpresa=empresa.oid,
+        data['cargos'] = paginated_external(
+            cargo_client, per_page=per_page, fkEmpresa=empresa.oid,
         )
         return data
 
