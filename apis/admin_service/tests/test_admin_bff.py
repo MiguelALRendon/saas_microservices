@@ -118,6 +118,23 @@ def test_create_sanitizes_and_proxies(client):
     assert captured["url"] == "http://catalogues.test/sucursal/"
 
 
+def test_junction_paths_map_hyphen_public_to_underscore_target(client):
+    # público con guion -> destino con guion bajo (auth_service sirve /usuario_rol, /permiso_asignado)
+    token, csrf = _login(client)
+    with patch("app.utils.proxy.requests.request", return_value=_mock_resp({"data": []})) as m:
+        client.get("/api/admin/usuario-rol/", headers=_headers(token))
+    assert m.call_args[0][1] == "http://auth.test/usuario_rol/"
+
+    with patch("app.utils.proxy.requests.request", return_value=_mock_resp({"data": []})) as m:
+        client.get("/api/admin/permiso-asignado/", headers=_headers(token))
+    assert m.call_args[0][1] == "http://auth.test/permiso_asignado/"
+
+    # usuario-empleado SÍ es guion en ambos lados
+    with patch("app.utils.proxy.requests.request", return_value=_mock_resp({"data": []})) as m:
+        client.get("/api/admin/usuario-empleado/", headers=_headers(token))
+    assert m.call_args[0][1] == "http://auth.test/usuario-empleado/"
+
+
 def test_proxy_connection_error_503(client):
     token, _ = _login(client)
     with patch("app.utils.proxy.requests.request", side_effect=requests.exceptions.ConnectionError()):
