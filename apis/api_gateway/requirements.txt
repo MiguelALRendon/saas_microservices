@@ -3,3 +3,5 @@ flask-jwt-extended
 flask-cors
 requests
 python-dotenv
+galurensoft_core @ git+https://github.com/MiguelALRendon/galurensoft_microsevice_core.git@v1.0.2
+galurensoft_api_kit @ git+https://github.com/MiguelALRendon/galurensoft_api_kit.git@v1.0.1

@@ -1,23 +1,15 @@
-from flask import Flask
-from flask_jwt_extended import JWTManager
-from flask_cors import CORS
+# Migrado a galurensoft_api_kit.gateway.create_gateway_app: compone Flask + JWTManager +
+# CORS + handlers de error estándar + registro de blueprints.
 from config import Config
-
-jwt = JWTManager()
+from galurensoft_api_kit.gateway import create_gateway_app
 
 
 def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
-
-    jwt.init_app(app)
-    CORS(
-        app,
-        resources={f"{Config.API_PREFIX}/*": {'origins': Config.CORS_ORIGINS.split(',')}},
-        supports_credentials=True,
-    )
-
     from app.routes import register_blueprints
-    register_blueprints(app)
 
-    return app
+    return create_gateway_app(
+        config=Config,
+        blueprints=register_blueprints,
+        cors_origins=Config.CORS_ORIGINS,
+        cors_resources=f"{Config.API_PREFIX}/*",
+    )

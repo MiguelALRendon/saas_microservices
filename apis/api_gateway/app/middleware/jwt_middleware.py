@@ -1,21 +1,6 @@
-from functools import wraps
-from flask import jsonify
-from flask_jwt_extended import verify_jwt_in_request, get_jwt
-from app.utils.session_store import get_session
+# Migrado a galurensoft_api_kit.auth.auth_required, configurado con el SessionStore del
+# gateway. Se mantiene el nombre `gateway_auth_required` usado por todas las rutas.
+from galurensoft_api_kit.auth import auth_required
+from app.utils.session_store import store
 
-
-def gateway_auth_required(f):
-    """Validate Bearer JWT and verify that an active gateway session exists."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        try:
-            verify_jwt_in_request()
-        except Exception:
-            return jsonify({'errors': ['Token inválido o expirado']}), 401
-
-        jti = get_jwt().get('jti')
-        if not get_session(jti):
-            return jsonify({'errors': ['Sesión expirada o no encontrada']}), 401
-
-        return f(*args, **kwargs)
-    return decorated
+gateway_auth_required = auth_required(store)
