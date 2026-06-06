@@ -1,47 +1,15 @@
-from flask import Flask
+# BFF público del panel admin (POS). Migrado a galurensoft_api_kit.gateway.create_gateway_app:
+# JWT + CORS + handlers de error + registro de blueprints (login + proxies generados).
 from config import Config
-from app.middleware import TrustedServiceMiddleware
+from galurensoft_api_kit.gateway import create_gateway_app
 
 
 def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
+    from app.routes import register_blueprints
 
-    # Seguridad inter-servicio
-    TrustedServiceMiddleware.register(app)
-
-    # Registrar blueprints (proxy puro hacia los servicios dueños)
-    from app.routes import (
-        sistema_bp,
-        empresa_bp,
-        sucursal_bp,
-        cargo_bp,
-        empleado_bp,
-        empleado_sucursal_bp,
-        rol_bp,
-        permiso_bp,
-        permiso_asignado_bp,
-        usuario_bp,
-        usuario_rol_bp,
-        usuario_empleado_bp,
-        usuario_sucursal_bp,
+    return create_gateway_app(
+        config=Config,
+        blueprints=register_blueprints,
+        cors_origins=Config.CORS_ORIGINS,
+        cors_resources=f"{Config.API_PREFIX}/*",
     )
-
-    for bp in (
-        sistema_bp,
-        empresa_bp,
-        sucursal_bp,
-        cargo_bp,
-        empleado_bp,
-        empleado_sucursal_bp,
-        rol_bp,
-        permiso_bp,
-        permiso_asignado_bp,
-        usuario_bp,
-        usuario_rol_bp,
-        usuario_empleado_bp,
-        usuario_sucursal_bp,
-    ):
-        app.register_blueprint(bp)
-
-    return app

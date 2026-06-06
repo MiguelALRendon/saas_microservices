@@ -1,29 +1,44 @@
-from .sistema_routes import sistema_bp
-from .empresa_routes import empresa_bp
-from .sucursal_routes import sucursal_bp
-from .cargo_routes import cargo_bp
-from .empleado_routes import empleado_bp
-from .empleado_sucursal_routes import empleado_sucursal_bp
-from .rol_routes import rol_bp
-from .permiso_routes import permiso_bp
-from .permiso_asignado_routes import permiso_asignado_bp
-from .usuario_routes import usuario_bp
-from .usuario_rol_routes import usuario_rol_bp
-from .usuario_empleado_routes import usuario_empleado_bp
-from .usuario_sucursal_routes import usuario_sucursal_bp
+# Registro de blueprints del BFF admin.
+# Las 13 entidades proxy 1:1 se generan declarativamente con galurensoft_api_kit
+# (antes: 13 archivos de rutas idénticos). auth_routes (login/logout) se registra aparte.
+from config import Config
+from galurensoft_api_kit.auth import auth_required, csrf_required
+from galurensoft_api_kit.proxy import ProxyResource, build_proxy_blueprint
+from galurensoft_api_kit.sanitizer import sanitize_payload
+from app.routes.auth_routes import auth_bp
+from app.utils.proxy import registry
+from app.utils.session_store import store
 
-__all__ = [
-    'sistema_bp',
-    'empresa_bp',
-    'sucursal_bp',
-    'cargo_bp',
-    'empleado_bp',
-    'empleado_sucursal_bp',
-    'rol_bp',
-    'permiso_bp',
-    'permiso_asignado_bp',
-    'usuario_bp',
-    'usuario_rol_bp',
-    'usuario_empleado_bp',
-    'usuario_sucursal_bp',
+# (nombre_blueprint, servicio_destino, path_en_servicio)
+_RESOURCES = [
+    ('usuario', 'auth', '/usuario'),
+    ('rol', 'auth', '/rol'),
+    ('permiso', 'auth', '/permiso'),
+    ('permiso_asignado', 'auth', '/permiso-asignado'),
+    ('usuario_rol', 'auth', '/usuario-rol'),
+    ('usuario_empleado', 'auth', '/usuario-empleado'),
+    ('usuario_sucursal', 'auth', '/usuario-sucursal'),
+    ('sistema', 'catalogues', '/sistema'),
+    ('empresa', 'catalogues', '/empresa'),
+    ('sucursal', 'catalogues', '/sucursal'),
+    ('cargo', 'branch', '/cargo'),
+    ('empleado', 'branch', '/empleado'),
+    ('empleado_sucursal', 'branch', '/empleado-sucursal'),
 ]
+
+
+def register_blueprints(app):
+    app.register_blueprint(auth_bp)
+
+    _auth = auth_required(store)
+    _csrf = csrf_required(store)
+    for name, service, target in _RESOURCES:
+        resource = ProxyResource(
+            name=name,
+            service=service,
+            url_prefix=f"{Config.API_PREFIX}{target}",
+            target_prefix=target,
+        )
+        app.register_blueprint(build_proxy_blueprint(
+            resource, registry, auth=_auth, csrf=_csrf, sanitize=sanitize_payload,
+        ))

@@ -1,3 +1,7 @@
 Flask==3.1.2
 python-dotenv==1.2.1
 requests==2.32.3
+Flask-JWT-Extended>=4.5
+Flask-Cors>=4.0
+galurensoft_core @ git+https://github.com/MiguelALRendon/galurensoft_microsevice_core.git@v1.0.4
+galurensoft_api_kit @ git+https://github.com/MiguelALRendon/galurensoft_api_kit.git@v1.1.0
