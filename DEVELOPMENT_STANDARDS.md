@@ -244,30 +244,215 @@ class EmpresaSchema(BaseSchema):
         return []
 ```
 
-**BaseSchema compartido:**
+**BaseSchema compartido (con helpers de escalabilidad):**
 
 ```python
 class BaseSchema:
-    """Schema base con métodos comunes"""
-    
+    """Schema base con métodos comunes y helpers de escalabilidad.
+
+    Helpers anti-N+1:
+    - empty_cache(): cache por-llamada (vive UNA operación schema).
+    - prefetch_external(): get_by_oid_list batch → cache.
+    - resolve_external(): lectura del cache + fallback individual.
+    - paginated_envelope(): envelope estándar para external.get_list().
+    - paginate_local(): pagina query SQLAlchemy interno.
+    - paginate_junction_external(): pagina junction local + resuelve external en batch.
+    """
+
     @staticmethod
     def serialize_base(obj):
-        """Serializa campos base de BaseObject"""
         return {
             'oid': obj.oid,
             'createdAt': obj.createdAt.isoformat() if obj.createdAt else None,
             'updatedAt': obj.updatedAt.isoformat() if obj.updatedAt else None,
             'creado_por': obj.creado_por,
             'editado_por': obj.editado_por,
-            'estatus': obj.estatus.value if obj.estatus else None
+            'estatus': obj.estatus.value if obj.estatus else None,
         }
+
+    @staticmethod
+    def empty_cache() -> dict:
+        return {}
+
+    @staticmethod
+    def prefetch_external(cache, key, oids, external_class) -> None:
+        bucket = cache.setdefault(key, {})
+        unique_oids = {oid for oid in oids if oid}
+        missing = [oid for oid in unique_oids if oid not in bucket]
+        if not missing:
+            return
+        for item in external_class.get_by_oid_list(missing):
+            if isinstance(item, dict) and item.get('oid'):
+                bucket[item['oid']] = item
+
+    @staticmethod
+    def resolve_external(cache, key, oid, external_class):
+        if not oid:
+            return None
+        bucket = cache.setdefault(key, {})
+        if oid in bucket:
+            return bucket[oid]
+        item = external_class.get_by_oid(oid)
+        if item is not None:
+            bucket[oid] = item
+        return item
+
+    @staticmethod
+    def _envelope(data, total, page, per_page, pages):
+        return {
+            'data': data, 'total': total, 'page': page,
+            'per_page': per_page, 'pages': pages,
+            'has_more': page < pages,
+        }
+
+    # paginated_envelope / paginate_local / paginate_junction_external
+    # (ver implementación completa en cada servicio)
 ```
 
 **Reglas:**
 - Métodos estáticos (no instanciar schemas)
 - Siempre incluir: `serialize`, `serialize_list`, `validate_create`, `validate_update`
+- Cuando la entidad tenga hijos derivados de junctions o relaciones 1:N que vale la pena mostrar agrupadamente, incluir además `serialize_detail(obj, per_page=25, _cache=None)`
+- Cuando la entidad sea una junction (tabla intermedia), incluir además `serialize_compact(obj, omit, _cache=None)` para uso en `serialize_detail` de los padres
+- Todos los métodos `serialize*` aceptan `_cache=None` como parámetro opcional para evitar N+1
 - Heredar de `BaseSchema` y usar `serialize_base`
 - Retornar lista de errores (strings) en validación
+
+### 2.0.1. Patrón `serialize` / `serialize_list` / `serialize_detail` / `serialize_compact`
+
+Cada schema expone varios niveles de serialización para escalar:
+
+- **`serialize(obj, _cache=None)`** — plano. Solo campos propios + FKs resueltas via cache.
+- **`serialize_list(items, _cache=None)`** — pre-batch de todas las FKs externas, luego itera serialize. **1 HTTP por external_class** sin importar N.
+- **`serialize_detail(obj, per_page=25, _cache=None)`** — detalle con hijos paginados en envelope.
+- **`serialize_compact(obj, omit, _cache=None)`** — solo para junctions. Omite un lado del par (el padre que la contiene).
+
+**Regla de uso por endpoint:**
+
+| Endpoint | Schema method | Justificación |
+|---|---|---|
+| `GET /<entity>/` (lista paginada) | `serialize_list()` con pre-batch | Listas largas, externals batched |
+| `GET /<entity>/<oid>?embedded_per_page=N` | **`serialize_detail(per_page=N)`** | Hijos paginados, sin truncado |
+| `POST /<entity>/` (crear uno) | `serialize()` plano | El objeto recién creado no tiene junctions |
+| `POST /<entity>/many` (crear varios) | `serialize_list()` plano | Bulk no debe explotar a detalle |
+| `PUT /<entity>/<oid>` (actualizar) | `serialize()` plano | Las junctions no cambian en un PUT |
+| `PUT /<entity>/many` (actualizar varios) | `serialize_list()` plano | Igual |
+| `DELETE /<entity>/<oid>` | sin schema | Mensaje |
+| `POST /<entity>/list` (batch por OIDs) | `serialize_list()` plano | Sirve a `external_` de otros servicios |
+
+### 2.0.2. Cache por-llamada (anti-N+1)
+
+El cache vive UNA llamada (típicamente UN request HTTP) y desaparece cuando retorna. **Nunca cruza requests** → cero staleness.
+
+```python
+# Patrón estándar en serialize_list
+@staticmethod
+def serialize_list(empleados, _cache=None):
+    cache = _cache if _cache is not None else BaseSchema.empty_cache()
+    BaseSchema.prefetch_external(cache, 'empresa', [e.fkEmpresa for e in empleados], EmpresaExternal)
+    BaseSchema.prefetch_external(cache, 'sistema', [e.fkSistema for e in empleados], SistemaExternal)
+    return [EmpleadoSchema.serialize(e, _cache=cache) for e in empleados]
+
+# Patrón estándar en serialize (usa cache si existe, fallback a get_by_oid si no)
+@staticmethod
+def serialize(empleado, _cache=None):
+    cache = _cache if _cache is not None else BaseSchema.empty_cache()
+    data = BaseSchema.serialize_base(empleado)
+    data.update({
+        'fkEmpresa': empleado.fkEmpresa,
+        'empresa': BaseSchema.resolve_external(cache, 'empresa', empleado.fkEmpresa, EmpresaExternal),
+        ...
+    })
+    return data
+```
+
+**Resultado:** `GET /empleado/?per_page=100` ahora dispara **2 HTTPs** (un batch de empresa, un batch de sistema), no 200.
+
+### 2.0.3. Envelope paginado en `serialize_detail`
+
+Todas las colecciones hijas en un detalle DEBEN ir en envelope paginado para evitar truncado silencioso y crecimiento ilimitado del payload:
+
+```json
+{
+  "oid": "...",
+  "nombre": "ACME",
+  "sucursales": {
+    "data": [...primeros N items...],
+    "total": 1500,
+    "page": 1,
+    "per_page": 25,
+    "pages": 60,
+    "has_more": true
+  }
+}
+```
+
+Se controla con query param: `GET /empresa/<oid>?embedded_per_page=50`. Default 25.
+
+Tres helpers según origen de la colección:
+
+```python
+# A) Hija local en mismo servicio (relación SQLAlchemy)
+data['sucursales'] = BaseSchema.paginate_local(
+    empresa.sucursales.filter(Sucursal.estatus == BaseObjectEstatus.ACTIVO),
+    lambda items: SucursalSchema.serialize_list(items, _cache=cache),
+    per_page=per_page,
+)
+
+# B) Hija completamente externa (otro microservicio)
+data['cargos'] = BaseSchema.paginated_envelope(
+    CargoExternal, per_page=per_page, fkEmpresa=empresa.oid,
+)
+
+# C) Junction local + lado externo en batch
+data['sucursales'] = BaseSchema.paginate_junction_external(
+    cache=cache,
+    junction_query=empleado.empleado_sucursales.filter(EmpleadoSucursal.estatus == BaseObjectEstatus.ACTIVO),
+    fk_attr='fkSucursal',
+    cache_key='sucursal',
+    external_class=SucursalExternal,
+    per_page=per_page,
+)
+```
+
+### 2.0.4. `serialize_compact` para evitar doble-serialización
+
+Cuando un padre incluye una junction en su detalle, la junction NO debe re-serializar el padre que ya la contiene. Se usa `serialize_compact(omit='<lado>')`:
+
+```python
+class PermisoAsignadoSchema(BaseSchema):
+    @staticmethod
+    def serialize(pa, _cache=None):
+        # Completa: ambos lados resueltos. Usada en GET /permiso-asignado/.
+        ...
+
+    @staticmethod
+    def serialize_compact(pa, omit: str, _cache=None):
+        # Omite 'rol' o 'permiso'. Usada cuando RolSchema.serialize_detail la embebe.
+        ...
+```
+
+Y en el padre:
+```python
+data['permisos_asignados'] = BaseSchema.paginate_local(
+    rol.permisos_asignados.filter(PermisoAsignado.estatus == BaseObjectEstatus.ACTIVO),
+    lambda items: [
+        PermisoAsignadoSchema.serialize_compact(pa, omit='rol', _cache=cache)
+        for pa in items
+    ],
+    per_page=per_page,
+)
+```
+
+### 2.0.5. Reglas anti-ciclo / anti-N+1 (resumen)
+
+1. **Nunca un schema llama `serialize_detail` de un padre.** Solo de hijos. Corta ciclos estructuralmente.
+2. **Todos los métodos `serialize*` aceptan y propagan `_cache=None`.** El cache se crea en el método más externo (típicamente `serialize_list` o `serialize_detail`) y se pasa hacia abajo.
+3. **Llamadas a `external_*` dentro de `serialize_list` siempre van vía `prefetch_external` (batch).** Nunca per-row.
+4. **Llamadas a `external_*` dentro de `serialize` van vía `resolve_external` (lee cache).** El fallback individual solo aplica para llamadas sueltas.
+5. **Colecciones hijas en `serialize_detail` siempre van en envelope paginado.** Nunca como array plano sin tope.
+6. **Junctions usadas por un padre van con `serialize_compact(omit=...)`,** nunca con `serialize()` (evita doble HTTP del lado padre).
+7. **Filtrar por `estatus == ACTIVO` antes de armar listas de OIDs.** No se anidan eliminados.
 
 ### 2.1. Resolución de Referencias FK en Serialización
 
@@ -1307,13 +1492,22 @@ Al crear un nuevo microservicio, verificar:
 
 ### Schemas
 - [ ] Heredan de BaseSchema
-- [ ] Implementan `serialize()`
-- [ ] Implementan `serialize_list()`
-- [ ] Implementan `validate_create()`
-- [ ] Implementan `validate_update()`
-- [ ] FKs al mismo microservicio resueltas como objetos completos (via relationships)
-- [ ] FKs a microservicios externos resueltas via módulo `external_`
+- [ ] Todos los métodos `serialize*` aceptan parámetro `_cache=None`
+- [ ] Implementan `serialize(obj, _cache=None)` (plano + lee del cache)
+- [ ] Implementan `serialize_list(items, _cache=None)` que hace `prefetch_external` en batch antes de iterar
+- [ ] Implementan `serialize_detail(obj, per_page=25, _cache=None)` cuando hay hijos relevantes
+- [ ] Si es junction, implementa `serialize_compact(obj, omit, _cache=None)`
+- [ ] Implementan `validate_create()` y `validate_update()`
+- [ ] FKs al mismo microservicio resueltas como objetos completos (via relationships, con `_cache` propagado)
+- [ ] FKs a microservicios externos resueltas via `BaseSchema.resolve_external(cache, ...)` (no llamada directa)
 - [ ] Tablas intermedias devuelven objetos reales (no listas de IDs)
+- [ ] `serialize_detail` solo se invoca desde `GET /<entity>/<oid>` (no en listas ni en POST/PUT)
+- [ ] `serialize_detail` nunca llama a `serialize_detail` de un padre (evita ciclos)
+- [ ] Colecciones hijas en `serialize_detail` van en envelope paginado (`paginate_local`, `paginated_envelope` o `paginate_junction_external`)
+- [ ] Junctions usadas por un padre van con `serialize_compact(omit=...)` (no `serialize()`)
+
+### Rutas
+- [ ] `GET /<entity>/<oid>` lee `embedded_per_page = request.args.get('embedded_per_page', 25, type=int)` y lo pasa a `serialize_detail`
 
 ### Rutas
 - [ ] 8 endpoints estándar implementados (incluye `POST /list`)

@@ -4,6 +4,8 @@ from app.models.rol import Rol
 from app.models.permiso_nuevo import Permiso
 from app.models.permiso_asignado import PermisoAsignado
 from app.models.usuario_rol import UsuarioRol
+from app.models.usuario_empleado import UsuarioEmpleado
+from app.models.usuario_sucursal import UsuarioSucursal
 
 __all__ = [
     'BaseObject',
@@ -12,4 +14,6 @@ __all__ = [
     'Permiso',
     'PermisoAsignado',
     'UsuarioRol',
+    'UsuarioEmpleado',
+    'UsuarioSucursal',
 ]

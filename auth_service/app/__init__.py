@@ -19,19 +19,29 @@ def create_app():
 
     # Registrar middleware de seguridad inter-servicio
     TrustedServiceMiddleware.register(app)
-    
+
     # Importar modelos para que SQLAlchemy los registre
     with app.app_context():
         from app import models
-    
+
     # Registrar blueprints
-    from app.routes import usuario_bp, rol_bp, permiso_bp, permiso_asignado_bp, usuario_rol_bp
-    from app.routes.auth_routes import auth_bp
+    from app.routes import (
+        auth_bp,
+        usuario_bp,
+        rol_bp,
+        permiso_bp,
+        permiso_asignado_bp,
+        usuario_rol_bp,
+        usuario_empleado_bp,
+        usuario_sucursal_bp,
+    )
     app.register_blueprint(auth_bp)
     app.register_blueprint(usuario_bp)
     app.register_blueprint(rol_bp)
     app.register_blueprint(permiso_bp)
     app.register_blueprint(permiso_asignado_bp)
     app.register_blueprint(usuario_rol_bp)
-    
+    app.register_blueprint(usuario_empleado_bp)
+    app.register_blueprint(usuario_sucursal_bp)
+
     return app

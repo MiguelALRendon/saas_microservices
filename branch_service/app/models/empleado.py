@@ -17,15 +17,14 @@ class Empleado(BaseContactoObject):
 
     # FKs externas — referencias a otros microservicios
     fkEmpresa = db.Column(db.String(36), nullable=False, index=True)
-    fkSucursal = db.Column(db.String(36), nullable=False, index=True)
     fkSistema = db.Column(db.String(36), nullable=False, index=True)
 
     # Relaciones
     cargo = db.relationship('Cargo', back_populates='empleados')
+    empleado_sucursales = db.relationship('EmpleadoSucursal', back_populates='empleado', lazy='dynamic')
+    turno_empleados = db.relationship('TurnoEmpleado', back_populates='empleado', lazy='dynamic')
 
-    # Índices compuestos
     __table_args__ = (
-        db.Index('ix_empleado_empresa_sucursal', 'fkEmpresa', 'fkSucursal'),
         db.Index('ix_empleado_sistema_empresa', 'fkSistema', 'fkEmpresa'),
     )
 

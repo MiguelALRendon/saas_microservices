@@ -1,42 +1,55 @@
 from .base_schema import BaseSchema
-from app.schemas.usuario_schema import UsuarioSchema
-from app.schemas.rol_schema import RolSchema
+from .usuario_schema import UsuarioSchema
+from .rol_schema import RolSchema
 
 
 class UsuarioRolSchema(BaseSchema):
-    """Schema para serialización y validación de UsuarioRol"""
+    """Junction Usuario ↔ Rol."""
 
     @staticmethod
-    def serialize(usuario_rol):
-        """Serializa un usuario_rol a diccionario"""
-        data = BaseSchema.serialize_base(usuario_rol)
+    def serialize(ur, _cache=None):
+        cache = _cache if _cache is not None else BaseSchema.empty_cache()
+        data = BaseSchema.serialize_base(ur)
         data.update({
-            'fkUsuario': usuario_rol.fkUsuario,
-            'usuario': UsuarioSchema.serialize(usuario_rol.usuario) if usuario_rol.usuario else None,
-            'fkRol': usuario_rol.fkRol,
-            'rol': RolSchema.serialize(usuario_rol.rol) if usuario_rol.rol else None,
+            'fkUsuario': ur.fkUsuario,
+            'usuario': UsuarioSchema.serialize(ur.usuario, _cache=cache) if ur.usuario else None,
+            'fkRol': ur.fkRol,
+            'rol': RolSchema.serialize(ur.rol, _cache=cache) if ur.rol else None,
         })
         return data
-    
+
     @staticmethod
-    def serialize_list(usuario_roles):
-        """Serializa una lista de usuario_roles"""
-        return [UsuarioRolSchema.serialize(ur) for ur in usuario_roles]
-    
+    def serialize_compact(ur, omit: str, _cache=None):
+        """omit ∈ {'usuario', 'rol'}."""
+        cache = _cache if _cache is not None else BaseSchema.empty_cache()
+        data = BaseSchema.serialize_base(ur)
+        if omit != 'usuario':
+            data['fkUsuario'] = ur.fkUsuario
+            data['usuario'] = UsuarioSchema.serialize(ur.usuario, _cache=cache) if ur.usuario else None
+        if omit != 'rol':
+            data['fkRol'] = ur.fkRol
+            data['rol'] = RolSchema.serialize(ur.rol, _cache=cache) if ur.rol else None
+        return data
+
+    @staticmethod
+    def serialize_list(items, _cache=None):
+        """Pre-batch de sistemas (vía usuarios anidados)."""
+        from app.external_catalogues.sistema_external import SistemaExternal
+
+        cache = _cache if _cache is not None else BaseSchema.empty_cache()
+        usuarios = [ur.usuario for ur in items if ur.usuario]
+        BaseSchema.prefetch_external(cache, 'sistema', [u.fkSistema for u in usuarios], SistemaExternal)
+        return [UsuarioRolSchema.serialize(ur, _cache=cache) for ur in items]
+
     @staticmethod
     def validate_create(data):
-        """Valida datos para crear un usuario_rol"""
         errors = []
-        
         if not data.get('fkUsuario'):
             errors.append('fkUsuario es requerido')
         if not data.get('fkRol'):
             errors.append('fkRol es requerido')
-        
         return errors
-    
+
     @staticmethod
     def validate_update(data):
-        """Valida datos para actualizar un usuario_rol"""
-        # Para update, los campos no son obligatorios
         return []

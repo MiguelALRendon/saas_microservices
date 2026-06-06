@@ -20,7 +20,8 @@ def get_cargo(oid):
         if not cargo:
             return jsonify({'errors': ['Cargo no encontrado']}), 404
 
-        return jsonify(CargoSchema.serialize(cargo)), 200
+        per_page = request.args.get('embedded_per_page', 25, type=int)
+        return jsonify(CargoSchema.serialize_detail(cargo, per_page=per_page)), 200
     except Exception as e:
         return jsonify({'errors': [str(e)]}), 500
 
@@ -34,6 +35,7 @@ def get_cargos():
 
         clave = request.args.get('clave', type=str)
         nombre = request.args.get('nombre', type=str)
+        fk_empresa = request.args.get('fkEmpresa', type=str)
 
         query = Cargo.query.filter(Cargo.estatus != BaseObjectEstatus.ELIMINADO)
 
@@ -41,6 +43,8 @@ def get_cargos():
             query = query.filter(Cargo.clave.ilike(f'%{clave}%'))
         if nombre:
             query = query.filter(Cargo.nombre.ilike(f'%{nombre}%'))
+        if fk_empresa:
+            query = query.filter(Cargo.fkEmpresa == fk_empresa)
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 

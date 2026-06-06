@@ -21,7 +21,8 @@ def get_empleado(oid):
         if not empleado:
             return jsonify({'errors': ['Empleado no encontrado']}), 404
 
-        return jsonify(EmpleadoSchema.serialize(empleado)), 200
+        per_page = request.args.get('embedded_per_page', 25, type=int)
+        return jsonify(EmpleadoSchema.serialize_detail(empleado, per_page=per_page)), 200
     except Exception as e:
         return jsonify({'errors': [str(e)]}), 500
 
@@ -30,6 +31,8 @@ def get_empleado(oid):
 def get_empleados():
     """Obtiene listado de empleados con paginación y filtros"""
     try:
+        from app.models.empleado_sucursal import EmpleadoSucursal
+
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
 
@@ -48,7 +51,13 @@ def get_empleados():
         if fk_empresa:
             query = query.filter(Empleado.fkEmpresa == fk_empresa)
         if fk_sucursal:
-            query = query.filter(Empleado.fkSucursal == fk_sucursal)
+            # fkSucursal ahora se filtra vía la junction empleado_sucursal
+            query = query.filter(
+                Empleado.empleado_sucursales.any(
+                    (EmpleadoSucursal.fkSucursal == fk_sucursal)
+                    & (EmpleadoSucursal.estatus != BaseObjectEstatus.ELIMINADO)
+                )
+            )
         if fk_cargo:
             query = query.filter(Empleado.fkCargo == fk_cargo)
 
@@ -100,7 +109,7 @@ def create_empleado():
             email=data.get('email'),
             fkCargo=data['fkCargo'],
             fkEmpresa=data['fkEmpresa'],
-            fkSucursal=data['fkSucursal'],
+            fkSistema=data['fkSistema'],
             creado_por=data.get('creado_por'),
             estatus=BaseObjectEstatus.ACTIVO
         )
@@ -161,7 +170,7 @@ def create_many_empleados():
                 email=item.get('email'),
                 fkCargo=item['fkCargo'],
                 fkEmpresa=item['fkEmpresa'],
-                fkSucursal=item['fkSucursal'],
+                fkSistema=item['fkSistema'],
                 creado_por=item.get('creado_por'),
                 estatus=BaseObjectEstatus.ACTIVO
             )
@@ -237,8 +246,8 @@ def update_empleado(oid):
             empleado.fkCargo = data['fkCargo']
         if 'fkEmpresa' in data:
             empleado.fkEmpresa = data['fkEmpresa']
-        if 'fkSucursal' in data:
-            empleado.fkSucursal = data['fkSucursal']
+        if 'fkSistema' in data:
+            empleado.fkSistema = data['fkSistema']
         if 'editado_por' in data:
             empleado.editado_por = data['editado_por']
 

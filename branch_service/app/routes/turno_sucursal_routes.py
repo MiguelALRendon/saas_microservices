@@ -20,7 +20,8 @@ def get_turno_sucursal(oid):
         if not turno:
             return jsonify({'errors': ['Turno de sucursal no encontrado']}), 404
 
-        return jsonify(TurnoSucursalSchema.serialize(turno)), 200
+        per_page = request.args.get('embedded_per_page', 25, type=int)
+        return jsonify(TurnoSucursalSchema.serialize_detail(turno, per_page=per_page)), 200
     except Exception as e:
         return jsonify({'errors': [str(e)]}), 500
 

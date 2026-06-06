@@ -16,6 +16,7 @@ class TurnoSucursal(BaseObject):
 
     # Relaciones
     cortes_caja = db.relationship('CorteCaja', back_populates='turno', lazy='dynamic')
+    turno_empleados = db.relationship('TurnoEmpleado', back_populates='turno', lazy='dynamic')
 
     # Índices compuestos
     __table_args__ = (

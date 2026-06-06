@@ -22,10 +22,19 @@ def create_app():
         from app import models
 
     # Registrar blueprints
-    from app.routes import cargo_bp, empleado_bp, turno_sucursal_bp, corte_caja_bp
+    from app.routes import (
+        cargo_bp,
+        empleado_bp,
+        turno_sucursal_bp,
+        corte_caja_bp,
+        empleado_sucursal_bp,
+        turno_empleado_bp,
+    )
     app.register_blueprint(cargo_bp)
     app.register_blueprint(empleado_bp)
     app.register_blueprint(turno_sucursal_bp)
     app.register_blueprint(corte_caja_bp)
+    app.register_blueprint(empleado_sucursal_bp)
+    app.register_blueprint(turno_empleado_bp)
 
     return app

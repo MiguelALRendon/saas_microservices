@@ -19,8 +19,9 @@ def get_rol(oid):
         
         if not rol:
             return jsonify({'errors': ['Rol no encontrado']}), 404
-        
-        return jsonify(RolSchema.serialize(rol)), 200
+
+        per_page = request.args.get('embedded_per_page', 25, type=int)
+        return jsonify(RolSchema.serialize_detail(rol, per_page=per_page)), 200
     except Exception as e:
         return jsonify({'errors': [str(e)]}), 500
 
