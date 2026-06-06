@@ -1,6 +1,5 @@
-from enum import Enum
+# Migrado a galurensoft_core: este enum ahora vive en la librería compartida.
+# Se re-exporta para no romper los imports existentes (`from app.enums import BaseObjectEstatus`).
+from galurensoft_core.persistence import BaseObjectEstatus
 
-class BaseObjectEstatus(str, Enum):
-    ACTIVO = "ACTIVO"
-    INACTIVO = "INACTIVO"
-    ELIMINADO = "ELIMINADO"
+__all__ = ['BaseObjectEstatus']

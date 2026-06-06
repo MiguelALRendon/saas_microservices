@@ -1,8 +1,7 @@
+# Migrado a galurensoft_core: PosContactoBase = PosBase + telefono + email.
 from app import db
-from .base import BaseObject
+from galurensoft_core.persistence import PosContactoBase
 
-class BaseContactoObject(BaseObject):
+
+class BaseContactoObject(db.Model, PosContactoBase):
     __abstract__ = True
-    
-    telefono = db.Column(db.String(20), nullable=True)
-    email = db.Column(db.String(120), nullable=True)

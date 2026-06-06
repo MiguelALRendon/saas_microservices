@@ -1,14 +1,9 @@
-import uuid
-from datetime import datetime
+# Migrado a galurensoft_core: las columnas base (oid, createdAt, updatedAt, creado_por,
+# editado_por, estatus) las aporta el mixin PosBase de la librería compartida. La clase
+# concreta sigue llamándose BaseObject para no romper los modelos existentes.
 from app import db
-from app.enums import BaseObjectEstatus
+from galurensoft_core.persistence import PosBase
 
-class BaseObject(db.Model):
+
+class BaseObject(db.Model, PosBase):
     __abstract__ = True
-    
-    oid = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    createdAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updatedAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    creado_por = db.Column(db.String(36), nullable=True)
-    editado_por = db.Column(db.String(36), nullable=True)
-    estatus = db.Column(db.Enum(BaseObjectEstatus), nullable=False, default=BaseObjectEstatus.ACTIVO)

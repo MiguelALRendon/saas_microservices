@@ -19,8 +19,9 @@ def get_sistema(oid):
         
         if not sistema:
             return jsonify({'errors': ['Sistema no encontrado']}), 404
-        
-        return jsonify(SistemaSchema.serialize(sistema)), 200
+
+        per_page = request.args.get('embedded_per_page', 25, type=int)
+        return jsonify(SistemaSchema.serialize_detail(sistema, per_page=per_page)), 200
     except Exception as e:
         return jsonify({'errors': [str(e)]}), 500
 

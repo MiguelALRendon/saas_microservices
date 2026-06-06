@@ -19,8 +19,9 @@ def get_empresa(oid):
         
         if not empresa:
             return jsonify({'errors': ['Empresa no encontrada']}), 404
-        
-        return jsonify(EmpresaSchema.serialize(empresa)), 200
+
+        per_page = request.args.get('embedded_per_page', 25, type=int)
+        return jsonify(EmpresaSchema.serialize_detail(empresa, per_page=per_page)), 200
     except Exception as e:
         return jsonify({'errors': [str(e)]}), 500
 
