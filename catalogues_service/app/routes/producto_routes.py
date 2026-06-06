@@ -27,6 +27,7 @@ producto_bp = build_blueprint(ResourceDescriptor(
     editable=['clave', 'nombre', 'codigo_barras', 'unidadMedida', 'is_especial', 'fkProveedorMarca'],
     filters={'clave': 'ilike', 'nombre': 'ilike', 'codigo_barras': 'ilike', 'is_especial': 'bool'},
     unique={'clave': 'La clave ya existe', 'codigo_barras': 'El código de barras ya existe'},
+    conflict_status=400,
     validate_create=ProductoSchema.validate_create,
     validate_update=ProductoSchema.validate_update,
     hooks=Hooks(

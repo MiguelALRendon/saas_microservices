@@ -20,6 +20,7 @@ empresa_bp = build_blueprint(ResourceDescriptor(
     editable=['clave', 'nombre', 'folio', 'urlLogo', 'direccion', 'telefono', 'email', 'fkSistema'],
     filters={'clave': 'ilike', 'nombre': 'ilike', 'email': 'ilike'},
     unique={'clave': 'La clave ya existe'},
+    conflict_status=400,
     validate_create=EmpresaSchema.validate_create,
     validate_update=EmpresaSchema.validate_update,
     not_found_message='Empresa no encontrada',

@@ -19,6 +19,7 @@ sucursal_bp = build_blueprint(ResourceDescriptor(
     editable=['clave', 'nombre', 'folio', 'direccion', 'telefono', 'fkEmpresa'],
     filters={'clave': 'ilike', 'nombre': 'ilike', 'fkEmpresa': 'eq'},
     unique={'clave': 'La clave ya existe'},
+    conflict_status=400,
     validate_create=SucursalSchema.validate_create,
     validate_update=SucursalSchema.validate_update,
     not_found_message='Sucursal no encontrada',

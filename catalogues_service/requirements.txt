@@ -3,4 +3,4 @@ Flask-SQLAlchemy==3.1.1
 python-dotenv==1.2.1
 PyMySQL==1.1.0
 Flask-Migrate==4.1.0
-galurensoft_core @ git+https://github.com/MiguelALRendon/galurensoft_microsevice_core.git@v1.0.2
+galurensoft_core @ git+https://github.com/MiguelALRendon/galurensoft_microsevice_core.git@v1.0.5

@@ -16,6 +16,7 @@ sistema_bp = build_blueprint(ResourceDescriptor(
     editable=['clave', 'nombre', 'descripcion', 'api_key'],
     filters={'clave': 'ilike', 'nombre': 'ilike'},
     unique={'clave': 'La clave ya existe', 'api_key': 'El api_key ya existe'},
+    conflict_status=400,
     validate_create=SistemaSchema.validate_create,
     validate_update=SistemaSchema.validate_update,
     not_found_message='Sistema no encontrado',

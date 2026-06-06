@@ -60,7 +60,7 @@ def test_create_validation_messages(client):
 def test_create_duplicate_clave(client):
     _create(client)
     resp = _create(client)
-    assert resp.status_code == 400 or resp.status_code == 409  # ver nota de contrato
+    assert resp.status_code == 400  # contrato original: duplicado -> 400 (no 409)
     assert resp.get_json() == {"errors": ["La clave ya existe"]}
 
 
