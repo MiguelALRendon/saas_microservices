@@ -1,6 +1,4 @@
-from enum import Enum
+# Migrado a galurensoft_core: enum compartido.
+from galurensoft_core.persistence import BaseObjectEstatus
 
-class BaseObjectEstatus(str, Enum):
-    ACTIVO = "ACTIVO"
-    INACTIVO = "INACTIVO"
-    ELIMINADO = "ELIMINADO"
+__all__ = ['BaseObjectEstatus']

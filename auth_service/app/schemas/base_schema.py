@@ -1,27 +1,19 @@
+# Migrado a galurensoft_core: este BaseSchema ahora delega en la librería compartida,
+# conservando la API estática que usan los schemas de entidad (serialize_base,
+# empty_cache, prefetch_external, resolve_external, paginate_local, paginated_envelope,
+# paginate_junction_external) — así los schemas no cambian.
+from galurensoft_core.serialization import serialize_audit
+from galurensoft_core.serialization import paginate_local as _paginate_local
+from galurensoft_core.serialization import paginated_external as _paginated_external
+from galurensoft_core.serialization import paginate_junction_external as _paginate_junction_external
+
+
 class BaseSchema:
-    """Schema base con métodos comunes y helpers de escalabilidad.
-
-    Los helpers de cache/batch/envelope son la base del patrón anti-N+1:
-    - empty_cache(): crea un cache por-llamada (vive una sola operación schema).
-    - prefetch_external(): hace get_by_oid_list en batch y lo mete al cache.
-    - resolve_external(): lee del cache; si no está, cae a get_by_oid individual.
-    - paginated_envelope(): envuelve un external.get_list() en el formato estándar.
-    - paginate_local(): pagina un query SQLAlchemy interno con el mismo envelope.
-    - paginate_junction_external(): pagina la junction local y resuelve el otro
-      lado (externo) en batch — clave para detalle de usuario→empleados, etc.
-    """
-
     @staticmethod
     def serialize_base(obj):
-        return {
-            'oid': obj.oid,
-            'createdAt': obj.createdAt.isoformat() if obj.createdAt else None,
-            'updatedAt': obj.updatedAt.isoformat() if obj.updatedAt else None,
-            'creado_por': obj.creado_por,
-            'editado_por': obj.editado_por,
-            'estatus': obj.estatus.value if obj.estatus else None,
-        }
+        return serialize_audit(obj)
 
+    # ── cache por-llamada (dict { key: { oid: payload } }) ──────────────────────
     @staticmethod
     def empty_cache() -> dict:
         return {}
@@ -49,61 +41,16 @@ class BaseSchema:
             bucket[oid] = item
         return item
 
+    # ── envelopes (delegan en la librería) ──────────────────────────────────────
     @staticmethod
-    def _envelope(data, total: int, page: int, per_page: int, pages: int) -> dict:
-        return {
-            'data': data,
-            'total': total,
-            'page': page,
-            'per_page': per_page,
-            'pages': pages,
-            'has_more': page < pages,
-        }
+    def paginate_local(query, serialize_fn, per_page: int = 25, page: int = 1) -> dict:
+        return _paginate_local(query, serialize_fn, page=page, per_page=per_page)
 
     @staticmethod
     def paginated_envelope(external_class, per_page: int = 25, page: int = 1, **filters) -> dict:
-        result = external_class.get_list(page=page, per_page=per_page, **filters)
-        if not isinstance(result, dict):
-            return BaseSchema._envelope([], 0, page, per_page, 0)
-        return BaseSchema._envelope(
-            data=result.get('data', []),
-            total=result.get('total', 0),
-            page=result.get('page', page),
-            per_page=result.get('per_page', per_page),
-            pages=result.get('pages', 0),
-        )
+        return _paginated_external(external_class, page=page, per_page=per_page, **filters)
 
     @staticmethod
-    def paginate_local(query, serialize_fn, per_page: int = 25, page: int = 1) -> dict:
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        return BaseSchema._envelope(
-            data=serialize_fn(pagination.items),
-            total=pagination.total,
-            page=pagination.page,
-            per_page=pagination.per_page,
-            pages=pagination.pages,
-        )
-
-    @staticmethod
-    def paginate_junction_external(
-        cache: dict,
-        junction_query,
-        fk_attr: str,
-        cache_key: str,
-        external_class,
-        per_page: int = 25,
-        page: int = 1,
-    ) -> dict:
-        pagination = junction_query.paginate(page=page, per_page=per_page, error_out=False)
-        oids = [getattr(j, fk_attr) for j in pagination.items if getattr(j, fk_attr)]
-        BaseSchema.prefetch_external(cache, cache_key, oids, external_class)
-        bucket = cache.get(cache_key, {})
-        data = [bucket[getattr(j, fk_attr)] for j in pagination.items
-                if getattr(j, fk_attr) and getattr(j, fk_attr) in bucket]
-        return BaseSchema._envelope(
-            data=data,
-            total=pagination.total,
-            page=pagination.page,
-            per_page=pagination.per_page,
-            pages=pagination.pages,
-        )
+    def paginate_junction_external(cache, junction_query, fk_attr, cache_key, external_class,
+                                   per_page: int = 25, page: int = 1) -> dict:
+        return _paginate_junction_external(junction_query, fk_attr, external_class, page=page, per_page=per_page)

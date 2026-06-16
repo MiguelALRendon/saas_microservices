@@ -1,30 +1,17 @@
-from flask import Flask
+# Migrado a galurensoft_core.web.create_service_app. Se conserva JWTManager (el login
+# emite access/refresh tokens del auth_service).
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from config import Config
-from app.middleware import TrustedServiceMiddleware
+from galurensoft_core.web import create_service_app
 
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 
+
 def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
-
-    db.init_app(app)
-    migrate.init_app(app, db, version_table='alembic_version_auth')
-    jwt.init_app(app)
-
-    # Registrar middleware de seguridad inter-servicio
-    TrustedServiceMiddleware.register(app)
-
-    # Importar modelos para que SQLAlchemy los registre
-    with app.app_context():
-        from app import models
-
-    # Registrar blueprints
     from app.routes import (
         auth_bp,
         usuario_bp,
@@ -35,13 +22,20 @@ def create_app():
         usuario_empleado_bp,
         usuario_sucursal_bp,
     )
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(usuario_bp)
-    app.register_blueprint(rol_bp)
-    app.register_blueprint(permiso_bp)
-    app.register_blueprint(permiso_asignado_bp)
-    app.register_blueprint(usuario_rol_bp)
-    app.register_blueprint(usuario_empleado_bp)
-    app.register_blueprint(usuario_sucursal_bp)
 
+    def on_models():
+        from app import models  # noqa: F401
+
+    app = create_service_app(
+        config=Config,
+        db=db,
+        migrate=migrate,
+        migrate_table='alembic_version_auth',
+        blueprints=[
+            auth_bp, usuario_bp, rol_bp, permiso_bp, permiso_asignado_bp,
+            usuario_rol_bp, usuario_empleado_bp, usuario_sucursal_bp,
+        ],
+        on_models=on_models,
+    )
+    jwt.init_app(app)
     return app
