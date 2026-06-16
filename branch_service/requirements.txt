@@ -4,3 +4,4 @@ python-dotenv==1.2.1
 Flask-Migrate==4.1.0
 PyMySQL==1.1.0
 requests==2.32.3
+galurensoft_core @ git+https://github.com/MiguelALRendon/galurensoft_microsevice_core.git@v1.0.8

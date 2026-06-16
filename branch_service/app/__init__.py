@@ -1,27 +1,16 @@
-from flask import Flask
+# Migrado a galurensoft_core.web.create_service_app.
+# NOTA: base.py/base_contacto.py/enums/base_schema se mantienen LOCALES porque branch usa
+# un BaseObjectEstatus con un valor extra (CANCELADO) — no se puede compartir el enum del core.
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
-from app.middleware import TrustedServiceMiddleware
+from galurensoft_core.web import create_service_app
 
 db = SQLAlchemy()
 migrate = Migrate()
 
+
 def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
-
-    db.init_app(app)
-    migrate.init_app(app, db, version_table='alembic_version_branch')
-
-    # Registrar middleware de seguridad inter-servicio
-    TrustedServiceMiddleware.register(app)
-
-    # Importar modelos para que SQLAlchemy los registre
-    with app.app_context():
-        from app import models
-
-    # Registrar blueprints
     from app.routes import (
         cargo_bp,
         empleado_bp,
@@ -30,11 +19,18 @@ def create_app():
         empleado_sucursal_bp,
         turno_empleado_bp,
     )
-    app.register_blueprint(cargo_bp)
-    app.register_blueprint(empleado_bp)
-    app.register_blueprint(turno_sucursal_bp)
-    app.register_blueprint(corte_caja_bp)
-    app.register_blueprint(empleado_sucursal_bp)
-    app.register_blueprint(turno_empleado_bp)
 
-    return app
+    def on_models():
+        from app import models  # noqa: F401
+
+    return create_service_app(
+        config=Config,
+        db=db,
+        migrate=migrate,
+        migrate_table='alembic_version_branch',
+        blueprints=[
+            cargo_bp, empleado_bp, turno_sucursal_bp,
+            corte_caja_bp, empleado_sucursal_bp, turno_empleado_bp,
+        ],
+        on_models=on_models,
+    )
