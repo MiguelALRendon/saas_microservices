@@ -7,3 +7,4 @@ Werkzeug==2.3.7
 PyMySQL==1.1.0
 argon2-cffi==23.1.0
 requests==2.32.3
+galurensoft_core @ git+https://github.com/MiguelALRendon/galurensoft_microsevice_core.git@v1.0.9
